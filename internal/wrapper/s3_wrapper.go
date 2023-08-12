@@ -2,6 +2,7 @@ package wrapper
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -34,9 +35,30 @@ func (s *S3Wrapper) ClearS3Objects(ctx context.Context, bucketName string, force
 		return err
 	}
 
-	_, err = s.client.ListObjectVersions(ctx, aws.String(bucketName), region)
-	if err != nil {
-		return err
+	for ok := true; ok; {
+		objectIdentifiers, err := s.client.ListObjectVersions(ctx, aws.String(bucketName), region)
+		if err != nil {
+			return err
+		}
+
+		if len(objectIdentifiers) > 0 {
+			io.Logger.Info().Msgf("Deleting %d objects", len(objectIdentifiers))
+			errors, err := s.client.DeleteObjects(ctx, aws.String(bucketName), objectIdentifiers, region)
+			if err != nil {
+				return err
+			}
+			if len(errors) > 0 {
+				errorStr := ""
+				for _, error := range errors {
+					errorStr += fmt.Sprintf("\nCode: %v\n", *error.Code)
+					errorStr += fmt.Sprintf("Key: %v\n", *error.Key)
+					errorStr += fmt.Sprintf("VersionId: %v\n", *error.VersionId)
+					errorStr += fmt.Sprintf("Message: %v\n", *error.Message)
+				}
+				return fmt.Errorf("DeleteObjectsError: followings %v", errorStr)
+			}
+		}
+		ok = len(objectIdentifiers) > 0
 	}
 
 	io.Logger.Info().Msgf("%v Cleared.", bucketName)

@@ -3,7 +3,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"runtime"
 	"strings"
 	"sync"
@@ -11,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/go-to-k/cls3/internal/io"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
@@ -165,6 +163,7 @@ func (s *S3) DeleteObjects(ctx context.Context, bucketName *string, objects []ty
 	return errors, nil
 }
 
+// list object version up to 1mil.
 func (s *S3) ListObjectVersions(ctx context.Context, bucketName *string, region string) ([]types.ObjectIdentifier, error) {
 	var keyMarker *string
 	var versionIdMarker *string
@@ -212,28 +211,10 @@ func (s *S3) ListObjectVersions(ctx context.Context, bucketName *string, region 
 			objectIdentifiers = append(objectIdentifiers, objectIdentifier)
 		}
 
-		if len(objectIdentifiers) > 0 {
-			io.Logger.Info().Msgf("Deleting %d objects", len(objectIdentifiers))
-			errors, err := s.DeleteObjects(ctx, bucketName, objectIdentifiers, region)
-			if err != nil {
-				return nil, err
-			}
-			if len(errors) > 0 {
-				errorStr := ""
-				for _, error := range errors {
-					errorStr += fmt.Sprintf("\nCode: %v\n", *error.Code)
-					errorStr += fmt.Sprintf("Key: %v\n", *error.Key)
-					errorStr += fmt.Sprintf("VersionId: %v\n", *error.VersionId)
-					errorStr += fmt.Sprintf("Message: %v\n", *error.Message)
-				}
-				return nil, fmt.Errorf("DeleteObjectsError: followings %v", errorStr)
-			}
-		}
-
 		keyMarker = output.NextKeyMarker
 		versionIdMarker = output.NextVersionIdMarker
 
-		if keyMarker == nil && versionIdMarker == nil {
+		if (keyMarker == nil && versionIdMarker == nil) || len(objectIdentifiers) > 1000000 {
 			break
 		}
 	}
