@@ -3,7 +3,6 @@ package client
 
 import (
 	"context"
-	"runtime"
 	"strings"
 	"sync"
 
@@ -21,7 +20,7 @@ const (
 	// Values above that threshold cause many 503 errors.
 	// So limit DeleteObjects to 3 parallels of 1000 objects at a time.
 	// https://docs.aws.amazon.com/AmazonS3/latest/userguide/optimizing-performance.html
-	MaxS3DeleteObjectsParallelsCount = 3
+	MaxS3DeleteObjectsParallelsCount = 100
 )
 
 var SleepTimeSecForS3 = 10
@@ -71,10 +70,10 @@ func (s *S3) DeleteObjects(ctx context.Context, bucketName *string, objects []ty
 	}
 
 	maxParallelsCount := MaxS3DeleteObjectsParallelsCount
-	numCPU := runtime.NumCPU()
-	if numCPU < MaxS3DeleteObjectsParallelsCount {
-		maxParallelsCount = numCPU
-	}
+	// numCPU := runtime.NumCPU()
+	// if numCPU < MaxS3DeleteObjectsParallelsCount {
+	// 	maxParallelsCount = numCPU
+	// }
 
 	eg, ctx := errgroup.WithContext(ctx)
 	outputsCh := make(chan *s3.DeleteObjectsOutput, maxParallelsCount)
