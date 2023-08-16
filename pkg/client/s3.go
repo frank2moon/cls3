@@ -20,7 +20,7 @@ const (
 	// Values above that threshold cause many 503 errors.
 	// So limit DeleteObjects to 3 parallels of 1000 objects at a time.
 	// https://docs.aws.amazon.com/AmazonS3/latest/userguide/optimizing-performance.html
-	MaxS3DeleteObjectsParallelsCount = 100
+	MaxS3DeleteObjectsParallelsCount = 3
 )
 
 var SleepTimeSecForS3 = 10
@@ -162,7 +162,7 @@ func (s *S3) DeleteObjects(ctx context.Context, bucketName *string, objects []ty
 	return errors, nil
 }
 
-// list object version up to 1mil.
+// list object version up to 100k.
 func (s *S3) ListObjectVersions(ctx context.Context, bucketName *string, region string) ([]types.ObjectIdentifier, error) {
 	var keyMarker *string
 	var versionIdMarker *string
@@ -213,7 +213,7 @@ func (s *S3) ListObjectVersions(ctx context.Context, bucketName *string, region 
 		keyMarker = output.NextKeyMarker
 		versionIdMarker = output.NextVersionIdMarker
 
-		if (keyMarker == nil && versionIdMarker == nil) || len(objectIdentifiers) > 1000000 {
+		if (keyMarker == nil && versionIdMarker == nil) || len(objectIdentifiers) > 100000 {
 			break
 		}
 	}
